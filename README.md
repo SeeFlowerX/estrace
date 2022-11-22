@@ -106,3 +106,9 @@ adb push bin/estrace /data/local/tmp
 - 支持32位进程
 - 更详细的信息输出
 - 指定syscall函数名而不是系统调用号
+
+# Thanks
+
+- [ehids/ebpfmanager](https://github.com/ehids/ebpfmanager)
+- [cilium/ebpf](https://github.com/cilium/ebpf)
+- [maiyao1988/ebpf-plugin](https://github.com/maiyao1988/ebpf-plugin)
