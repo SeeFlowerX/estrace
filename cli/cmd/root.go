@@ -147,6 +147,8 @@ func runCommand(executable string, args ...string) (string, error) {
 }
 
 func parseByPackage(name string) error {
+	// 先设置默认值
+	global_config.Is32Bit = true
 	// 先检查dumpsys命令 如果没有可能是eadb环境
 	// 那么只能用ps获取正在运行的APP包名
 	result, err := runCommand("which", "dumpsys")
@@ -175,9 +177,16 @@ func parseByPackage(name string) error {
 			line = strings.Trim(line, " ")
 			parts := strings.SplitN(line, "=", 2)
 			if len(parts) == 2 {
-				if parts[0] == "userId" {
-					global_config.Uid, _ = strconv.ParseUint(parts[1], 10, 64)
+				key, value := parts[0], parts[1]
+				switch key {
+				case "userId":
+					global_config.Uid, _ = strconv.ParseUint(value, 10, 64)
 					has_uid = true
+					break
+				case "primaryCpuAbi":
+					if value == "arm64-v8a" {
+						global_config.Is32Bit = false
+					}
 					break
 				}
 			}

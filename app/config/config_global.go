@@ -9,6 +9,7 @@ type GlobalConfig struct {
     Pid      uint64
     NR       uint64
     LogFile  string
+    Is32Bit  bool
     ExecPath string
 }
 
@@ -37,7 +38,7 @@ func (this *GlobalConfig) GetFilter() Filter {
 
 func (this *GlobalConfig) GetArch() Arch {
     arch := Arch{
-        is_32bit: false,
+        is_32bit: this.Is32Bit,
     }
     return arch
 }
