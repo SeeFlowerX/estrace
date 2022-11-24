@@ -380,7 +380,7 @@
     "382": [5, "renameat2", 10],
     "383": [3, "seccomp", 0],
     "384": [3, "getrandom", 0],
-    "385": [2, "memfd_create", 0],
+    "385": [2, "memfd_create", 1],
     "386": [3, "bpf", 0],
     "387": [5, "execveat", 14],
     "388": [1, "userfaultfd", 0],

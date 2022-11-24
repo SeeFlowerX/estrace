@@ -262,7 +262,7 @@
     "276": [5, "renameat2", 10],
     "277": [3, "seccomp", 0],
     "278": [3, "getrandom", 0],
-    "279": [2, "memfd_create", 0],
+    "279": [2, "memfd_create", 1],
     "280": [3, "bpf", 0],
     "281": [5, "execveat", 14],
     "282": [1, "userfaultfd", 0],
