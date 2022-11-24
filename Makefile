@@ -34,7 +34,7 @@ ebpf:
 
 .PHONY: assets
 assets:
-	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata -pkg assets -o "app/assets/ebpf_probe.go" $(wildcard ./app/bytecode/*.o app/config/table.json)
+	$(CMD_GO) run github.com/shuLhan/go-bindata/cmd/go-bindata -pkg assets -o "app/assets/ebpf_probe.go" $(wildcard ./app/bytecode/*.o app/config/table*.json)
 
 .PHONY: build
 build:

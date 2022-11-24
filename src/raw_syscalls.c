@@ -108,11 +108,16 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
     data->syscall_id = ctx->args[1];
     // 获取线程名
     bpf_get_current_comm(&data->comm, sizeof(data->comm));
+
+    u32 arch_key = 0;
+    struct arch_t* arch = bpf_map_lookup_elem(&arch_map, &arch_key);
+    if (arch == NULL) {
+        return 0;
+    }
+
     // 获取字符串参数类型配置
     struct arg_mask_t* arg_mask = bpf_map_lookup_elem(&arg_mask_map, &data->syscall_id);
-    switch (data->syscall_id)
-    {
-    case 221: {
+    if ((arch->is_32bit && data->syscall_id == 11) || (!arch->is_32bit && data->syscall_id == 221)) {
         data->type = 2;
         // execve 3个参数
         // const char *filename char *const argv[] char *const envp[]
@@ -144,9 +149,7 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
                 }
             }
         }
-        break;
-    }
-    case 281: {
+    } else if ((arch->is_32bit && data->syscall_id == 387) || (!arch->is_32bit && data->syscall_id == 281)) {
         data->type = 2;
         // int execveat(int dirfd, const char *pathname, const char *const argv[], const char *const envp[], int flags);
         #pragma unroll
@@ -174,10 +177,7 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
                 }
             }
         }
-        break;
-    }
-    
-    default: {
+    } else {
         // 展开循环
         #pragma unroll
         for (int i = 0; i < 6; i++) {
@@ -191,16 +191,9 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
                 long status = bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
             }
         }
-        break;
-    }
     }
 
     // 获取syscall进入时的寄存器信息并发送
-    u32 arch_key = 0;
-    struct arch_t* arch = bpf_map_lookup_elem(&arch_map, &arch_key);
-    if (arch == NULL) {
-        return 0;
-    }
     if(arch->is_32bit) {
         bpf_probe_read_kernel(&data->lr, sizeof(data->lr), &regs->regs[14]);
     }

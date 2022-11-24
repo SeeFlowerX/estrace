@@ -8,6 +8,7 @@ type GlobalConfig struct {
     Uid      uint64
     Pid      uint64
     NR       uint64
+    SysCall  string
     LogFile  string
     Is32Bit  bool
     ExecPath string
@@ -18,6 +19,15 @@ type Filter struct {
     pid uint32
     nr  uint32
 }
+
+func (this *Filter) GetNR() uint32 {
+    return this.nr
+}
+
+func (this *Filter) UpdateNR(nr uint32) {
+    this.nr = nr
+}
+
 type Arch struct {
     is_32bit bool
 }

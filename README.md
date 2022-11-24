@@ -26,7 +26,7 @@ adb shell chmod +x /data/local/tmp/estrace
 进入`adb shell`，`在root用户下`执行命令，示例如下
 
 ```bash
-/data/local/tmp/estrace --name com.starbucks.cn --nr 221 --getlr -o trace.log
+/data/local/tmp/estrace --name com.starbucks.cn --syscall execve --getlr -o trace.log
 ```
 
 ![](./images/Snipaste_2022-11-22_17-10-18.png)
@@ -103,9 +103,8 @@ adb push bin/estrace /data/local/tmp
 
 # TODO
 
-- 支持32位进程
 - 更详细的信息输出
-- 指定syscall函数名而不是系统调用号
+- 对于启动的shell进程似乎追踪不到返回结果，待优化逻辑
 
 # Thanks
 

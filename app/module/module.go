@@ -69,10 +69,15 @@ func (this *Module) Check() {
 }
 
 func (this *Module) Run() error {
-
+	var table_path string
+	if this.conf.Is32Bit {
+		table_path = "app/config/table32.json"
+	} else {
+		table_path = "app/config/table64.json"
+	}
 	this.systable_config = config.NewSysTableConfig()
 	// 获取syscall读取参数的mask配置
-	table_buffer, err := assets.Asset("app/config/table.json")
+	table_buffer, err := assets.Asset(table_path)
 	var tmp_config map[string][]interface{}
 	json.Unmarshal(table_buffer, &tmp_config)
 	for nr, config_arr := range tmp_config {
@@ -159,6 +164,17 @@ func (this *Module) Run() error {
 	// 更新进程过滤设置
 	filter_key := 0
 	filter := this.conf.GetFilter()
+	if this.conf.SysCall != "" {
+		taget_nr, err := this.systable_config.GetNR(this.conf.SysCall)
+		if err != nil {
+			return err
+		}
+		filter.UpdateNR(uint32(taget_nr))
+	}
+	err = this.systable_config.CheckNR(filter.GetNR())
+	if err != nil {
+		return err
+	}
 	filterMap.Update(unsafe.Pointer(&filter_key), unsafe.Pointer(&filter), ebpf.UpdateAny)
 
 	var errChan = make(chan error, 8)
