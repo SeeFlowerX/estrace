@@ -7,12 +7,19 @@ estrace是一款基于eBPF的syscall追踪工具，适用于安卓平台
 - 对字符串参数进行读取输出
 - 支持计算syscall调用时的lr
 
+部分命令说明：
+
+- `--syscall` 支持同时追踪多个syscall，请使用`,`分隔
+- `--no-syscall` 即syscall黑名单，在不指定`--syscall`时可以使用
+- `--no-tid` 即线程id黑名单，在部分线程疯狂输出时建议使用，也支持多个，请使用`,`分隔
+- `--no-uid-filter` 使用该选项后不对uid进行过滤，用于某些APP使用`isolatedProcess`的情况
+
 # 要求
 
 - 手机有root权限
-- 手机内核版本大于5.4（目前仅在5.10测试过）
+- 手机内核版本大于等于5.10（目前仅在5.10测试过）
 
-~~真机推荐：Redmi Note 11T Pro/Pixel 6~~
+**真机推荐：Redmi Note 11T Pro**
 
 # 使用
 
@@ -23,7 +30,7 @@ adb push estrace /data/local/tmp
 adb shell chmod +x /data/local/tmp/estrace
 ```
 
-进入`adb shell`，`在root用户下`执行命令，示例如下
+进入`adb shell`，`在root用户下`执行命令，示例如下：
 
 ```bash
 /data/local/tmp/estrace --name com.starbucks.cn --syscall execve --getlr -o trace.log
@@ -31,11 +38,23 @@ adb shell chmod +x /data/local/tmp/estrace
 
 ![](./images/Snipaste_2022-11-22_17-10-18.png)
 
+项目提供了一个`--bypass`选项，你可以使用该选项测试过掉root检查，当然这里只是进行简单演示
+
+对应eBPF程序的关键代码请查看[raw_syscalls.c](src/raw_syscalls.c)的`send_data`函数
+
+原理是比较可读字符串参数，命中预设的字符串时，将其内容改写，参考命令如下：
+
 ```bash
-/data/local/tmp/estrace --name com.starbucks.cn --nr 78 --getlr -o readlinkat.log
+./estrace --name io.github.vvb2060.mahoshojo -o tmp.log --quiet --bypass
 ```
 
-![](./images/Snipaste_2022-11-22_17-18-44.png)
+可以实现过momo的root检测，演示效果如下：
+
+![](./images/oCam_2022_12_04_23_03_56_661.mp4)
+
+我这里magisk被安装到了`/dev/.magisk`，所以可能并不适用于其他情况，仅供参考，有兴趣请自行修改源码测试
+
+更多命令，请执行`./estrace --help`查看
 
 # 编译
 
@@ -99,12 +118,12 @@ export PATH=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
 make clean && make
 
 adb push bin/estrace /data/local/tmp
+adb shell chmod +x /data/local/tmp/estrace
 ```
 
 # TODO
 
 - 更详细的信息输出
-- 对于启动的shell进程似乎追踪不到返回结果，待优化逻辑
 
 # Thanks
 
