@@ -44,6 +44,8 @@ struct filter_t {
     u32 uid;
     u32 pid;
     u32 is_32bit;
+    u32 tid_blacklist_mask;
+    u32 tid_blacklist[MAX_COUNT];
     u32 syscall_mask;
     u32 syscall[MAX_COUNT];
     u32 syscall_blacklist_mask;
@@ -64,6 +66,34 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
     struct filter_t* filter = bpf_map_lookup_elem(&filter_map, &filter_key);
     if (filter == NULL) {
         return 0;
+    }
+
+    // 获取信息用于过滤
+    u64 current_uid_gid = bpf_get_current_uid_gid();
+    u32 uid = current_uid_gid >> 32;
+    u64 current_pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = current_pid_tgid >> 32;
+    u32 tid = current_pid_tgid & 0xffffffff;
+    // uid 过滤
+    if (filter->uid != 0 && filter->uid != uid) {
+        return 0;
+    }
+    // pid 过滤
+    if (filter->pid != 0 && filter->pid != pid) {
+        return 0;
+    }
+    // tid 黑名单过滤
+    #pragma unroll
+    for (int i = 0; i < MAX_COUNT; i++) {
+        if ((filter->tid_blacklist_mask & (1 << i))) {
+            if (filter->tid_blacklist[i] == tid) {
+                // 在tid黑名单直接结束跳过
+                return 0;
+            }
+        } else {
+            // 减少不必要的循环
+            break;
+        }
     }
 
     // syscall 白名单过滤
@@ -109,21 +139,6 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
     u32 zero = 0;
     struct syscall_data_t* data = bpf_map_lookup_elem(&syscall_data_buffer_heap, &zero);
     if (data == NULL) {
-        return 0;
-    }
-
-    // uid 过滤
-    u64 current_uid_gid = bpf_get_current_uid_gid();
-    u32 uid = current_uid_gid >> 32;
-    if (filter->uid != 0 && filter->uid != uid) {
-        return 0;
-    }
-
-    // pid 过滤
-    u64 current_pid_tgid = bpf_get_current_pid_tgid();
-    u32 pid = current_pid_tgid >> 32;
-    u32 tid = current_pid_tgid & 0xffffffff;
-    if (filter->pid != 0 && filter->pid != pid) {
         return 0;
     }
 
@@ -254,7 +269,7 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
     //         if (arg_mask && !(arg_mask->mask & (1 << j))) continue;
     //         if (j == 1) {
     //             __builtin_memset(&data->arg_str, 0, sizeof(data->arg_str));
-    //             bpf_probe_read_str(data->arg_str, sizeof(data->arg_str), (void*)data->args[j]);
+    //             bpf_probe_read_user(data->arg_str, sizeof(data->arg_str), (void*)data->args[j]);
 
     //             bool need_bypass_root_check = true;
     //             char target_magisk[] = "/dev/.magisk";
@@ -320,17 +335,32 @@ int raw_syscalls_sys_exit(struct bpf_raw_tracepoint_args* ctx) {
         return 0;
     }
 
-    // 获取进程信息用于过滤
+    // 获取信息用于过滤
     u64 current_uid_gid = bpf_get_current_uid_gid();
     u32 uid = current_uid_gid >> 32;
-    if (filter->uid != 0 && filter->uid != uid) {
-        return 0;
-    }
     u64 current_pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = current_pid_tgid >> 32;
     u32 tid = current_pid_tgid & 0xffffffff;
+    // uid过滤
+    if (filter->uid != 0 && filter->uid != uid) {
+        return 0;
+    }
+    // pid过滤
     if (filter->pid != 0 && filter->pid != pid) {
         return 0;
+    }
+    // tid 黑名单过滤
+    #pragma unroll
+    for (int i = 0; i < MAX_COUNT; i++) {
+        if ((filter->tid_blacklist_mask & (1 << i))) {
+            if (filter->tid_blacklist[i] == tid) {
+                // 在tid黑名单直接结束跳过
+                return 0;
+            }
+        } else {
+            // 减少不必要的循环
+            break;
+        }
     }
 
     struct pt_regs *regs = (struct pt_regs*)(ctx->args[0]);

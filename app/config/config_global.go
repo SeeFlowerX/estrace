@@ -11,6 +11,7 @@ type GlobalConfig struct {
     Pid       uint64
     SysCall   string
     NoSysCall string
+    NoTid     string
     LogFile   string
     Is32Bit   bool
     ExecPath  string
@@ -34,6 +35,12 @@ func (this *GlobalConfig) GetFilter(systable_config SysTableConfig) (Filter, err
     }
     if this.NoSysCall != "" {
         err = filter.SetSysCallBlacklist(this.NoSysCall, systable_config)
+        if err != nil {
+            return filter, err
+        }
+    }
+    if this.NoTid != "" {
+        err = filter.SetTidBlacklist(this.NoTid)
         if err != nil {
             return filter, err
         }

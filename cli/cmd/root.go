@@ -214,6 +214,7 @@ func init() {
 	rootCmd.PersistentFlags().Uint64VarP(&global_config.Pid, "pid", "p", 0, "add pid to filter")
 	rootCmd.PersistentFlags().StringVarP(&global_config.SysCall, "syscall", "s", "", "add syscall name to whitelist filter")
 	rootCmd.PersistentFlags().StringVarP(&global_config.NoSysCall, "no-syscall", "", "", "add syscall name to blacklist filter")
+	rootCmd.PersistentFlags().StringVarP(&global_config.NoTid, "no-tid", "", "", "add tid to blacklist filter")
 	rootCmd.PersistentFlags().StringVarP(&global_config.LogFile, "out", "o", "", "save the log to file")
 	rootCmd.PersistentFlags().BoolVarP(&global_config.GetLR, "getlr", "", false, "try get lr info")
 	rootCmd.PersistentFlags().BoolVarP(&global_config.Debug, "debug", "d", false, "enable debug logging")
