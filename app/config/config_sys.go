@@ -33,6 +33,7 @@ func (this *SysTableConfig) GetNR(syscall string) (int, error) {
 }
 
 func (this *SysTableConfig) CheckNR(nr uint32) error {
+	// 检查系统调用号是否合法
 	nr_str := strconv.FormatUint(uint64(nr), 10)
 	has_nr := false
 	for nr := range *this {

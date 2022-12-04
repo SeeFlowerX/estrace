@@ -1,35 +1,19 @@
 package config
 
+const MAX_COUNT = 10
+
 type GlobalConfig struct {
-    Quiet    bool
-    Name     string
-    GetLR    bool
-    Debug    bool
-    Uid      uint64
-    Pid      uint64
-    NR       uint64
-    SysCall  string
-    LogFile  string
-    Is32Bit  bool
-    ExecPath string
-}
-
-type Filter struct {
-    uid uint32
-    pid uint32
-    nr  uint32
-}
-
-func (this *Filter) GetNR() uint32 {
-    return this.nr
-}
-
-func (this *Filter) UpdateNR(nr uint32) {
-    this.nr = nr
-}
-
-type Arch struct {
-    is_32bit bool
+    Quiet     bool
+    Name      string
+    GetLR     bool
+    Debug     bool
+    Uid       uint64
+    Pid       uint64
+    SysCall   string
+    NoSysCall string
+    LogFile   string
+    Is32Bit   bool
+    ExecPath  string
 }
 
 func NewGlobalConfig() *GlobalConfig {
@@ -37,18 +21,22 @@ func NewGlobalConfig() *GlobalConfig {
     return config
 }
 
-func (this *GlobalConfig) GetFilter() Filter {
-    filter := Filter{
-        uid: uint32(this.Uid),
-        pid: uint32(this.Pid),
-        nr:  uint32(this.NR),
+func (this *GlobalConfig) GetFilter(systable_config SysTableConfig) (Filter, error) {
+    filter := Filter{}
+    filter.SetUid(uint32(this.Uid))
+    filter.SetPid(uint32(this.Pid))
+    var err error = nil
+    if this.SysCall != "" {
+        err = filter.SetSysCall(this.SysCall, systable_config)
+        if err != nil {
+            return filter, err
+        }
     }
-    return filter
-}
-
-func (this *GlobalConfig) GetArch() Arch {
-    arch := Arch{
-        is_32bit: this.Is32Bit,
+    if this.NoSysCall != "" {
+        err = filter.SetSysCallBlacklist(this.NoSysCall, systable_config)
+        if err != nil {
+            return filter, err
+        }
     }
-    return arch
+    return filter, err
 }

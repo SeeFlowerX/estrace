@@ -147,31 +147,13 @@ func (this *Module) Run() error {
 		argMaskMap.Update(unsafe.Pointer(&nr_key), unsafe.Pointer(&table_config.Mask), ebpf.UpdateAny)
 	}
 
-	archMap, found, err := this.bpfManager.GetMap("arch_map")
-	if !found {
-		return errors.New("cannot find arch_map")
-	}
-
-	// 更新进程架构信息
-	arch_key := 0
-	arch := this.conf.GetArch()
-	archMap.Update(unsafe.Pointer(&arch_key), unsafe.Pointer(&arch), ebpf.UpdateAny)
-
 	filterMap, found, err := this.bpfManager.GetMap("filter_map")
 	if !found {
 		return errors.New("cannot find filter_map")
 	}
-	// 更新进程过滤设置
+	// 更新进程过滤配置
 	filter_key := 0
-	filter := this.conf.GetFilter()
-	if this.conf.SysCall != "" {
-		taget_nr, err := this.systable_config.GetNR(this.conf.SysCall)
-		if err != nil {
-			return err
-		}
-		filter.UpdateNR(uint32(taget_nr))
-	}
-	err = this.systable_config.CheckNR(filter.GetNR())
+	filter, err := this.conf.GetFilter(this.systable_config)
 	if err != nil {
 		return err
 	}
@@ -192,8 +174,8 @@ func (this *Module) Run() error {
 	if !found {
 		return errors.New("cannot find syscall_events map")
 	}
-	// rd, err := perf.NewReader(syscallEventsMap, os.Getpagesize()*64)
-	rd, err := perf.NewReader(syscallEventsMap, os.Getpagesize()*64, false, false)
+	// rd, err := perf.NewReader(syscallEventsMap, os.Getpagesize()*128)
+	rd, err := perf.NewReader(syscallEventsMap, os.Getpagesize()*128, false, false)
 	if err != nil {
 		errChan <- fmt.Errorf("creating %s reader: %s", syscallEventsMap.String(), err)
 		return nil

@@ -6,6 +6,8 @@
 
 #define TASK_COMM_LEN 16
 
+#define MAX_COUNT 10
+
 typedef signed char __s8;
 
 typedef unsigned char __u8;
