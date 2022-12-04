@@ -6,6 +6,7 @@ type GlobalConfig struct {
     Quiet       bool
     Name        string
     GetLR       bool
+    GetPC       bool
     Debug       bool
     Uid         uint64
     Pid         uint64

@@ -219,6 +219,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&global_config.NoUidFilter, "no-uid-filter", "", false, "ignore uid filter")
 	rootCmd.PersistentFlags().BoolVarP(&global_config.Bypass, "bypass", "", false, "try bypass root check")
 	rootCmd.PersistentFlags().BoolVarP(&global_config.GetLR, "getlr", "", false, "try get lr info")
+	rootCmd.PersistentFlags().BoolVarP(&global_config.GetPC, "getpc", "", false, "try get pc info")
 	rootCmd.PersistentFlags().BoolVarP(&global_config.Debug, "debug", "d", false, "enable debug logging")
 	rootCmd.PersistentFlags().BoolVarP(&global_config.Quiet, "quiet", "q", false, "wont logging to terminal when used")
 }

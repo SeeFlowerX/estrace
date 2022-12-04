@@ -284,6 +284,12 @@ func (this *Module) Decode(em *ebpf.Map, payload []byte) (event event.SyscallDat
 				this.logger.Printf("ParseLR err:%v\n", err)
 			}
 			this.logger.Printf("%s %s LR:%s\n", base_str, this.ReadArgs(*data), info)
+		} else if this.conf.GetPC {
+			info, err := this.ParsePC(*data)
+			if err != nil {
+				this.logger.Printf("ParsePC err:%v\n", err)
+			}
+			this.logger.Printf("%s %s PC:%s\n", base_str, this.ReadArgs(*data), info)
 		} else {
 			this.logger.Printf("%s %s\n", base_str, this.ReadArgs(*data))
 		}
@@ -325,6 +331,37 @@ func (this *Module) ParseLR(data syscall_data) (string, error) {
 		if err == nil && n == 7 {
 			if data.lr >= seg_start && data.lr < seg_end {
 				offset := seg_offset + (data.lr - seg_start)
+				info = fmt.Sprintf("%s + 0x%x", seg_path, offset)
+				break
+			}
+		}
+	}
+	return info, err
+}
+
+func (this *Module) ParsePC(data syscall_data) (string, error) {
+	info := "UNKNOWN"
+	// 直接读取maps信息 计算pc在什么地方 定位syscall调用也就一目了然了
+	filename := fmt.Sprintf("/proc/%d/maps", data.pid)
+	content, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return info, fmt.Errorf("Error when opening file:%v", err)
+	}
+	var (
+		seg_start  uint64
+		seg_end    uint64
+		permission string
+		seg_offset uint64
+		device     string
+		inode      uint64
+		seg_path   string
+	)
+	for _, line := range strings.Split(string(content), "\n") {
+		reader := strings.NewReader(line)
+		n, err := fmt.Fscanf(reader, "%x-%x %s %x %s %d %s", &seg_start, &seg_end, &permission, &seg_offset, &device, &inode, &seg_path)
+		if err == nil && n == 7 {
+			if data.pc >= seg_start && data.pc < seg_end {
+				offset := seg_offset + (data.pc - seg_start)
 				info = fmt.Sprintf("%s + 0x%x", seg_path, offset)
 				break
 			}
