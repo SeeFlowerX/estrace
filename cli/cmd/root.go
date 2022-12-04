@@ -24,7 +24,7 @@ import (
 var global_config = config.NewGlobalConfig()
 
 var rootCmd = &cobra.Command{
-	Use:               "eSysTrace",
+	Use:               "estrace",
 	Short:             "eBPF on Android案例",
 	Long:              "syscall调用追踪",
 	PersistentPreRunE: persistentPreRunEFunc,
