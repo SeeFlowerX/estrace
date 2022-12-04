@@ -233,7 +233,7 @@ type syscall_data struct {
 	arg_index  uint64
 	args       [6]uint64
 	comm       [16]byte
-	arg_str    [256]byte
+	arg_str    [1024]byte
 }
 
 func (this *Module) Decode(em *ebpf.Map, payload []byte) (event event.SyscallDataEvent, err error) {
@@ -288,7 +288,8 @@ func (this *Module) Decode(em *ebpf.Map, payload []byte) (event event.SyscallDat
 			this.logger.Printf("%s %s\n", base_str, this.ReadArgs(*data))
 		}
 	case 2:
-		this.logger.Printf("%s arg_index:%d arg_str:%s\n", base_str, data.arg_index, bytes.TrimSpace(bytes.Trim(data.arg_str[:], "\x00")))
+		arg_str := strings.SplitN(string(bytes.Trim(data.arg_str[:], "\x00")), "\x00", 2)[0]
+		this.logger.Printf("%s arg_index:%d arg_str:%s\n", base_str, data.arg_index, strings.TrimSpace(arg_str))
 	case 3:
 		this.logger.Printf("%s ret:0x%x\n", base_str, data.ret)
 	}

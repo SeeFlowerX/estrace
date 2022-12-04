@@ -13,7 +13,7 @@ struct syscall_data_t {
     u64 arg_index;
     u64 args[6];
     char comm[16];
-    char arg_str[256];
+    char arg_str[1024];
 };
 
 struct {
@@ -166,7 +166,7 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
             if (data->args[j] == 0) continue;
             if (j == 0) {
                 __builtin_memset(&data->arg_str, 0, sizeof(data->arg_str));
-                bpf_probe_read_str(data->arg_str, sizeof(data->arg_str), (void*)data->args[j]);
+                bpf_probe_read_user(data->arg_str, sizeof(data->arg_str), (void*)data->args[j]);
                 bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
             } else {
                 // 最多遍历得到6个子参数
@@ -177,7 +177,7 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
                     // 这里应该用 bpf_probe_read_user 而不是 bpf_probe_read_kernel
                     bpf_probe_read_user(&addr, sizeof(u64), ptr);
                     if (addr != 0) {
-                        bpf_probe_read_str(data->arg_str, sizeof(data->arg_str), (void*)addr);
+                        bpf_probe_read_user(data->arg_str, sizeof(data->arg_str), (void*)addr);
 
                         // bool need_bypass_root_check = true;
                         // char target[] = "which su";
@@ -227,7 +227,7 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
             if (arg_mask && !(arg_mask->mask & (1 << j))) continue;
             if (j == 1) {
                 __builtin_memset(&data->arg_str, 0, sizeof(data->arg_str));
-                bpf_probe_read_str(data->arg_str, sizeof(data->arg_str), (void*)data->args[j]);
+                bpf_probe_read_user(data->arg_str, sizeof(data->arg_str), (void*)data->args[j]);
                 bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
             } else {
                 for (int i = 0; i < 6; i++) {
@@ -236,7 +236,7 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
                     u64 addr = 0x0;
                     bpf_probe_read_user(&addr, sizeof(u64), ptr);
                     if (addr != 0) {
-                        bpf_probe_read_str(data->arg_str, sizeof(data->arg_str), (void*)addr);
+                        bpf_probe_read_user(data->arg_str, sizeof(data->arg_str), (void*)addr);
                         bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
                     } else {
                         break;
@@ -298,7 +298,12 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
                 data->arg_index = i;
                 bpf_probe_read_kernel(&data->args[i], sizeof(u64), &regs->regs[i]);
                 __builtin_memset(&data->arg_str, 0, sizeof(data->arg_str));
-                bpf_probe_read_str(data->arg_str, sizeof(data->arg_str), (void*)data->args[i]);
+                // bpf_probe_read_str 读取出来有的内容部分是空 结果中不会有NUL
+                // bpf_probe_read_user 读取出来有的内容极少是空 但许多字符串含有NUL
+                // bpf_probe_read_user_str 读取出来有的内容部分是空 结果中不会有NUL
+                // 综合测试使用 bpf_probe_read_user 最合理 在前端处理 NUL
+                // 不过仍然有部分结果是空 调整大小又能读到 原因未知
+                bpf_probe_read_user(data->arg_str, sizeof(data->arg_str), (void*)data->args[i]);
                 long status = bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
             }
         }
