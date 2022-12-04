@@ -44,6 +44,7 @@ struct filter_t {
     u32 uid;
     u32 pid;
     u32 is_32bit;
+    u32 try_bypass;
     u32 tid_blacklist_mask;
     u32 tid_blacklist[MAX_COUNT];
     u32 syscall_mask;
@@ -58,6 +59,42 @@ struct {
     __type(value, struct filter_t);
     __uint(max_entries, 1);
 } filter_map SEC(".maps");
+
+static long inline send_data(struct bpf_raw_tracepoint_args* ctx, struct syscall_data_t* data, u64 addr) {
+    u32 filter_key = 0;
+    struct filter_t* filter = bpf_map_lookup_elem(&filter_map, &filter_key);
+    if (filter == NULL) {
+        return 0;
+    }
+    if (filter->try_bypass) {
+        char target[3][12] = {
+            "/dev/.magisk",
+            "which su",
+            "mount",
+        };
+        #pragma unroll
+        for (int i = 0; i < 3; i++) {
+            bool need_override = true;
+            #pragma unroll
+            for (int j = 0; j < 12; j++) {
+                if (target[i][j] == 0) break;
+                if (data->arg_str[j] != target[i][j]) {
+                    need_override = false;
+                    break;
+                }
+            }
+            if (need_override) {
+                // char fmt0[] = "hit rule, lets bypass it, uid:%s\n";
+                // bpf_trace_printk(fmt0, sizeof(fmt0), data->arg_str);
+                char placeholder[] = "/estrace/is/watching/you";
+                bpf_probe_write_user((void*)addr, placeholder, sizeof(placeholder));
+            }
+        }
+    }
+
+    long status = bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
+    return status;
+}
 
 SEC("raw_tracepoint/sys_enter")
 int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
@@ -182,7 +219,8 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
             if (j == 0) {
                 __builtin_memset(&data->arg_str, 0, sizeof(data->arg_str));
                 bpf_probe_read_user(data->arg_str, sizeof(data->arg_str), (void*)data->args[j]);
-                bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
+                // bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
+                send_data(ctx, data, data->args[j]);
             } else {
                 // 最多遍历得到6个子参数
                 for (int i = 0; i < 6; i++) {
@@ -193,38 +231,8 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
                     bpf_probe_read_user(&addr, sizeof(u64), ptr);
                     if (addr != 0) {
                         bpf_probe_read_user(data->arg_str, sizeof(data->arg_str), (void*)addr);
-
-                        // bool need_bypass_root_check = true;
-                        // char target[] = "which su";
-                        // for (int i = 0; i < sizeof(target); ++i) {
-                        //     if (data->arg_str[i] != target[i]) {
-                        //         need_bypass_root_check = false;
-                        //         break;
-                        //     }
-                        // }
-                        // if (need_bypass_root_check) {
-                        //     char fmt0[] = "execve call which su, lets bypass it, uid:%d\n";
-                        //     bpf_trace_printk(fmt0, sizeof(fmt0), uid);
-                        //     char placeholder[] = "which bb";
-                        //     bpf_probe_write_user((void*)addr, placeholder, sizeof(placeholder));
-                        // }
-
-                        // bool need_bypass_mount_check = true;
-                        // char target_mount[] = "mount";
-                        // for (int i = 0; i < sizeof(target_mount); ++i) {
-                        //     if (data->arg_str[i] != target_mount[i]) {
-                        //         need_bypass_mount_check = false;
-                        //         break;
-                        //     }
-                        // }
-                        // if (need_bypass_mount_check) {
-                        //     char fmt0[] = "execve call mount, lets bypass it, uid:%d\n";
-                        //     bpf_trace_printk(fmt0, sizeof(fmt0), uid);
-                        //     char placeholder[] = "uname";
-                        //     bpf_probe_write_user((void*)addr, placeholder, sizeof(placeholder));
-                        // }
-
-                        bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
+                        // bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
+                        send_data(ctx, data, addr);
                     } else {
                         // 遇到为NULL的 直接结束内部遍历
                         break;
@@ -243,7 +251,8 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
             if (j == 1) {
                 __builtin_memset(&data->arg_str, 0, sizeof(data->arg_str));
                 bpf_probe_read_user(data->arg_str, sizeof(data->arg_str), (void*)data->args[j]);
-                bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
+                // bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
+                send_data(ctx, data, data->args[j]);
             } else {
                 for (int i = 0; i < 6; i++) {
                     __builtin_memset(&data->arg_str, 0, sizeof(data->arg_str));
@@ -252,58 +261,14 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
                     bpf_probe_read_user(&addr, sizeof(u64), ptr);
                     if (addr != 0) {
                         bpf_probe_read_user(data->arg_str, sizeof(data->arg_str), (void*)addr);
-                        bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
+                        // bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
+                        send_data(ctx, data, addr);
                     } else {
                         break;
                     }
                 }
             }
         }
-    // } else if ((filter->is_32bit && data->syscall_id == 334) || (!filter->is_32bit && data->syscall_id == 48)) {
-    //     // int faccessat(int dirfd, const char *pathname, int mode, int flags);
-    //     #pragma unroll
-    //     for (int j = 0; j < 4; j++) {
-    //         data->arg_index = j;
-    //         bpf_probe_read_kernel(&data->args[j], sizeof(u64), &regs->regs[j]);
-    //         if (data->args[j] == 0) continue;
-    //         if (arg_mask && !(arg_mask->mask & (1 << j))) continue;
-    //         if (j == 1) {
-    //             __builtin_memset(&data->arg_str, 0, sizeof(data->arg_str));
-    //             bpf_probe_read_user(data->arg_str, sizeof(data->arg_str), (void*)data->args[j]);
-
-    //             bool need_bypass_root_check = true;
-    //             char target_magisk[] = "/dev/.magisk";
-    //             for (int i = 0; i < sizeof(target_magisk)-1; ++i) {
-    //                 if (data->arg_str[i] != target_magisk[i]) {
-    //                     need_bypass_root_check = false;
-    //                     break;
-    //                 }
-    //             }
-    //             if (need_bypass_root_check) {
-    //                 char fmt0[] = "faccessat su, lets bypass it, uid:%d\n";
-    //                 bpf_trace_printk(fmt0, sizeof(fmt0), uid);
-    //                 char placeholder[] = "/bbbbbbbbbbbbbbbbbbbb";
-    //                 bpf_probe_write_user((void*)data->args[j], placeholder, sizeof(placeholder));
-    //             }
-
-    //             bool need_bypass_sdcard_check = true;
-    //             char target_sdcard[] = "/sdcard";
-    //             for (int i = 0; i < sizeof(target_sdcard)-1; ++i) {
-    //                 if (data->arg_str[i] != target_sdcard[i]) {
-    //                     need_bypass_sdcard_check = false;
-    //                     break;
-    //                 }
-    //             }
-    //             if (need_bypass_sdcard_check) {
-    //                 char fmt0[] = "faccessat sdcard, lets bypass it, uid:%d\n";
-    //                 bpf_trace_printk(fmt0, sizeof(fmt0), uid);
-    //                 char placeholder[] = "/bbbbbbbbbbbbbbbbbbbb";
-    //                 bpf_probe_write_user((void*)data->args[j], placeholder, sizeof(placeholder));
-    //             }
-
-    //             bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
-    //         }
-    //     }
     } else {
         // 展开循环
         #pragma unroll
@@ -319,7 +284,8 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
                 // 综合测试使用 bpf_probe_read_user 最合理 在前端处理 NUL
                 // 不过仍然有部分结果是空 调整大小又能读到 原因未知
                 bpf_probe_read_user(data->arg_str, sizeof(data->arg_str), (void*)data->args[i]);
-                long status = bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
+                // long status = bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
+                send_data(ctx, data, data->args[i]);
             }
         }
     }

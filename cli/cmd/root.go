@@ -216,6 +216,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&global_config.NoSysCall, "no-syscall", "", "", "add syscall name to blacklist filter")
 	rootCmd.PersistentFlags().StringVarP(&global_config.NoTid, "no-tid", "", "", "add tid to blacklist filter")
 	rootCmd.PersistentFlags().StringVarP(&global_config.LogFile, "out", "o", "", "save the log to file")
+	rootCmd.PersistentFlags().BoolVarP(&global_config.NoUidFilter, "no-uid-filter", "", false, "ignore uid filter")
+	rootCmd.PersistentFlags().BoolVarP(&global_config.Bypass, "bypass", "", false, "try bypass root check")
 	rootCmd.PersistentFlags().BoolVarP(&global_config.GetLR, "getlr", "", false, "try get lr info")
 	rootCmd.PersistentFlags().BoolVarP(&global_config.Debug, "debug", "d", false, "enable debug logging")
 	rootCmd.PersistentFlags().BoolVarP(&global_config.Quiet, "quiet", "q", false, "wont logging to terminal when used")

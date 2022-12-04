@@ -3,18 +3,20 @@ package config
 const MAX_COUNT = 10
 
 type GlobalConfig struct {
-    Quiet     bool
-    Name      string
-    GetLR     bool
-    Debug     bool
-    Uid       uint64
-    Pid       uint64
-    SysCall   string
-    NoSysCall string
-    NoTid     string
-    LogFile   string
-    Is32Bit   bool
-    ExecPath  string
+    Quiet       bool
+    Name        string
+    GetLR       bool
+    Debug       bool
+    Uid         uint64
+    Pid         uint64
+    SysCall     string
+    NoSysCall   string
+    NoTid       string
+    LogFile     string
+    Is32Bit     bool
+    NoUidFilter bool
+    Bypass      bool
+    ExecPath    string
 }
 
 func NewGlobalConfig() *GlobalConfig {
@@ -24,8 +26,15 @@ func NewGlobalConfig() *GlobalConfig {
 
 func (this *GlobalConfig) GetFilter(systable_config SysTableConfig) (Filter, error) {
     filter := Filter{}
-    filter.SetUid(uint32(this.Uid))
+    if this.NoUidFilter {
+        // 强制忽略uid过滤
+        filter.SetUid(0)
+    } else {
+        filter.SetUid(uint32(this.Uid))
+    }
     filter.SetPid(uint32(this.Pid))
+    filter.SetArch(this.Is32Bit)
+    filter.SetByPass(this.Bypass)
     var err error = nil
     if this.SysCall != "" {
         err = filter.SetSysCall(this.SysCall, systable_config)

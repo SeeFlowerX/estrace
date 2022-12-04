@@ -10,6 +10,7 @@ type Filter struct {
     uid                    uint32
     pid                    uint32
     is_32bit               uint32
+    try_bypass             uint32
     tid_blacklist_mask     uint32
     tid_blacklist          [MAX_COUNT]uint32
     syscall_mask           uint32
@@ -76,5 +77,13 @@ func (this *Filter) SetArch(is_32bit bool) {
         this.is_32bit = 1
     } else {
         this.is_32bit = 0
+    }
+}
+
+func (this *Filter) SetByPass(try_bypass bool) {
+    if try_bypass {
+        this.try_bypass = 1
+    } else {
+        this.try_bypass = 0
     }
 }
