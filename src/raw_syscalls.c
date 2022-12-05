@@ -282,10 +282,10 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
         // 展开循环
         #pragma unroll
         for (int i = 0; i < 6; i++) {
+            bpf_probe_read_kernel(&data->args[i], sizeof(u64), &regs->regs[i]);
             // 栈空间大小限制 分组发送
             if (arg_mask->mask & (1 << i)) {
                 data->arg_index = i;
-                bpf_probe_read_kernel(&data->args[i], sizeof(u64), &regs->regs[i]);
                 __builtin_memset(&data->arg_str, 0, sizeof(data->arg_str));
                 // bpf_probe_read_str 读取出来有的内容部分是空 结果中不会有NUL
                 // bpf_probe_read_user 读取出来有的内容极少是空 但许多字符串含有NUL
@@ -408,9 +408,9 @@ int raw_syscalls_sys_exit(struct bpf_raw_tracepoint_args* ctx) {
     data->type = 4;
     #pragma unroll
     for (int i = 0; i < 6; i++) {
+        bpf_probe_read_kernel(&data->args[i], sizeof(u64), &regs->regs[i]);
         if (arg_ret_mask->mask & (1 << i)) {
             data->arg_index = i;
-            bpf_probe_read_kernel(&data->args[i], sizeof(u64), &regs->regs[i]);
             __builtin_memset(&data->arg_str, 0, sizeof(data->arg_str));
             bpf_probe_read_user(data->arg_str, sizeof(data->arg_str), (void*)data->args[i]);
             send_data_arg_str(ctx, data, data->args[i]);
