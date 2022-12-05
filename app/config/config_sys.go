@@ -6,9 +6,10 @@ import (
 )
 
 type TableConfig struct {
-	Count uint32
-	Name  string
-	Mask  uint32
+	Count   uint32
+	Name    string
+	Mask    uint32
+	RetMask uint32
 }
 
 type SysTableConfig map[string]TableConfig

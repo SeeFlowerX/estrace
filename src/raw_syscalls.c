@@ -39,6 +39,17 @@ struct {
     __uint(max_entries, 512);
 } arg_mask_map SEC(".maps");
 
+struct arg_ret_mask_t {
+    u32 ret_mask;
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, u32);
+    __type(value, struct arg_ret_mask_t);
+    __uint(max_entries, 512);
+} arg_ret_mask_map SEC(".maps");
+
 // 用于设置过滤配置
 struct filter_t {
     u32 uid;
@@ -60,7 +71,7 @@ struct {
     __uint(max_entries, 1);
 } filter_map SEC(".maps");
 
-static long inline send_data(struct bpf_raw_tracepoint_args* ctx, struct syscall_data_t* data, u64 addr) {
+static int inline send_data_arg_str(struct bpf_raw_tracepoint_args* ctx, struct syscall_data_t* data, u64 addr) {
     u32 filter_key = 0;
     struct filter_t* filter = bpf_map_lookup_elem(&filter_map, &filter_key);
     if (filter == NULL) {
@@ -91,9 +102,8 @@ static long inline send_data(struct bpf_raw_tracepoint_args* ctx, struct syscall
             }
         }
     }
-
-    long status = bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
-    return status;
+    bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
+    return 0;
 }
 
 SEC("raw_tracepoint/sys_enter")
@@ -178,6 +188,11 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
     if (data == NULL) {
         return 0;
     }
+    // 获取字符串参数类型配置
+    struct arg_mask_t* arg_mask = bpf_map_lookup_elem(&arg_mask_map, &data->syscall_id);
+    if (arg_mask == NULL) {
+        return 0;
+    }
 
     // 获取线程名
     __builtin_memset(&data->comm, 0, sizeof(data->comm));
@@ -201,12 +216,10 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
     bpf_probe_read_kernel(&data->sp, sizeof(data->sp), &regs->sp);
     __builtin_memset(&data->arg_str, 0, sizeof(data->arg_str));
     data->type = 1;
-    long status = bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
+    bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
 
     // 获取参数
     data->type = 2;
-    // 获取字符串参数类型配置
-    struct arg_mask_t* arg_mask = bpf_map_lookup_elem(&arg_mask_map, &data->syscall_id);
     if ((filter->is_32bit && data->syscall_id == 11) || (!filter->is_32bit && data->syscall_id == 221)) {
         // execve 3个参数
         // const char *filename char *const argv[] char *const envp[]
@@ -219,8 +232,7 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
             if (j == 0) {
                 __builtin_memset(&data->arg_str, 0, sizeof(data->arg_str));
                 bpf_probe_read_user(data->arg_str, sizeof(data->arg_str), (void*)data->args[j]);
-                // bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
-                send_data(ctx, data, data->args[j]);
+                send_data_arg_str(ctx, data, data->args[j]);
             } else {
                 // 最多遍历得到6个子参数
                 for (int i = 0; i < 6; i++) {
@@ -231,8 +243,7 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
                     bpf_probe_read_user(&addr, sizeof(u64), ptr);
                     if (addr != 0) {
                         bpf_probe_read_user(data->arg_str, sizeof(data->arg_str), (void*)addr);
-                        // bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
-                        send_data(ctx, data, addr);
+                        send_data_arg_str(ctx, data, addr);
                     } else {
                         // 遇到为NULL的 直接结束内部遍历
                         break;
@@ -247,12 +258,11 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
             data->arg_index = j;
             bpf_probe_read_kernel(&data->args[j], sizeof(u64), &regs->regs[j]);
             if (data->args[j] == 0) continue;
-            if (arg_mask && !(arg_mask->mask & (1 << j))) continue;
+            if (!(arg_mask->mask & (1 << j))) continue;
             if (j == 1) {
                 __builtin_memset(&data->arg_str, 0, sizeof(data->arg_str));
                 bpf_probe_read_user(data->arg_str, sizeof(data->arg_str), (void*)data->args[j]);
-                // bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
-                send_data(ctx, data, data->args[j]);
+                send_data_arg_str(ctx, data, data->args[j]);
             } else {
                 for (int i = 0; i < 6; i++) {
                     __builtin_memset(&data->arg_str, 0, sizeof(data->arg_str));
@@ -261,8 +271,7 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
                     bpf_probe_read_user(&addr, sizeof(u64), ptr);
                     if (addr != 0) {
                         bpf_probe_read_user(data->arg_str, sizeof(data->arg_str), (void*)addr);
-                        // bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
-                        send_data(ctx, data, addr);
+                        send_data_arg_str(ctx, data, addr);
                     } else {
                         break;
                     }
@@ -274,7 +283,7 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
         #pragma unroll
         for (int i = 0; i < 6; i++) {
             // 栈空间大小限制 分组发送
-            if (arg_mask && arg_mask->mask & (1 << i)) {
+            if (arg_mask->mask & (1 << i)) {
                 data->arg_index = i;
                 bpf_probe_read_kernel(&data->args[i], sizeof(u64), &regs->regs[i]);
                 __builtin_memset(&data->arg_str, 0, sizeof(data->arg_str));
@@ -284,12 +293,14 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
                 // 综合测试使用 bpf_probe_read_user 最合理 在前端处理 NUL
                 // 不过仍然有部分结果是空 调整大小又能读到 原因未知
                 bpf_probe_read_user(data->arg_str, sizeof(data->arg_str), (void*)data->args[i]);
-                // long status = bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
-                send_data(ctx, data, data->args[i]);
+                send_data_arg_str(ctx, data, data->args[i]);
             }
         }
     }
-
+    // 这里会得到完整参数对应的寄存器信息
+    __builtin_memset(&data->arg_str, 0, sizeof(data->arg_str));
+    data->type = 3;
+    bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
     return 0;
 }
 
@@ -381,13 +392,34 @@ int raw_syscalls_sys_exit(struct bpf_raw_tracepoint_args* ctx) {
         }
     }
 
-    data->type = 3;
-    data->ret = ctx->args[1];
+    struct arg_mask_t* arg_ret_mask = bpf_map_lookup_elem(&arg_ret_mask_map, &data->syscall_id);
+    if (arg_ret_mask == NULL) {
+        return 0;
+    }
+
+    // 获取线程名
+    __builtin_memset(&data->comm, 0, sizeof(data->comm));
+    bpf_get_current_comm(&data->comm, sizeof(data->comm));
+    // 基本信息
     data->pid = pid;
     data->tid = tid;
-    // 获取线程名
-    bpf_get_current_comm(&data->comm, sizeof(data->comm));
-    // 发送数据
-    long status = bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
+
+    // 获取syscall执行后才会有内容的字符串参数 比如重定向检测
+    data->type = 4;
+    #pragma unroll
+    for (int i = 0; i < 6; i++) {
+        if (arg_ret_mask->mask & (1 << i)) {
+            data->arg_index = i;
+            bpf_probe_read_kernel(&data->args[i], sizeof(u64), &regs->regs[i]);
+            __builtin_memset(&data->arg_str, 0, sizeof(data->arg_str));
+            bpf_probe_read_user(data->arg_str, sizeof(data->arg_str), (void*)data->args[i]);
+            send_data_arg_str(ctx, data, data->args[i]);
+        }
+    }
+
+    // 发送返回结果
+    data->type = 5;
+    data->ret = ctx->args[1];
+    bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
     return 0;
 }

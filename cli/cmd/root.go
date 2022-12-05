@@ -44,7 +44,7 @@ func runFunc(command *cobra.Command, args []string) {
 	ctx, cancelFun := context.WithCancel(context.TODO())
 
 	// 首先根据全局设定设置日志输出
-	logger := log.New(os.Stdout, "syscall_", log.Ltime)
+	logger := log.New(os.Stdout, "", log.Lmicroseconds)
 	if global_config.LogFile != "" {
 		log_path := global_config.ExecPath + "/" + global_config.LogFile
 		_, err := os.Stat(log_path)

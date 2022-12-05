@@ -82,9 +82,10 @@ func (this *Module) Run() error {
 	json.Unmarshal(table_buffer, &tmp_config)
 	for nr, config_arr := range tmp_config {
 		table_config := config.TableConfig{
-			Count: uint32(config_arr[0].(float64)),
-			Name:  config_arr[1].(string),
-			Mask:  uint32(config_arr[2].(float64)),
+			Count:   uint32(config_arr[0].(float64)),
+			Name:    config_arr[1].(string),
+			Mask:    uint32(config_arr[2].(float64)),
+			RetMask: uint32(config_arr[3].(float64)),
 		}
 		this.systable_config[nr] = table_config
 	}
@@ -145,6 +146,14 @@ func (this *Module) Run() error {
 		// 更新用于获取字符串信息的map
 		nr_key, _ := strconv.ParseUint(nr, 10, 32)
 		argMaskMap.Update(unsafe.Pointer(&nr_key), unsafe.Pointer(&table_config.Mask), ebpf.UpdateAny)
+	}
+	argRetMaskMap, found, err := this.bpfManager.GetMap("arg_ret_mask_map")
+	if !found {
+		return errors.New("cannot find arg_ret_mask_map")
+	}
+	for nr, table_config := range this.systable_config {
+		nr_key, _ := strconv.ParseUint(nr, 10, 32)
+		argRetMaskMap.Update(unsafe.Pointer(&nr_key), unsafe.Pointer(&table_config.RetMask), ebpf.UpdateAny)
 	}
 
 	filterMap, found, err := this.bpfManager.GetMap("filter_map")
@@ -275,28 +284,39 @@ func (this *Module) Decode(em *ebpf.Map, payload []byte) (event event.SyscallDat
 	if err = binary.Read(buf, binary.LittleEndian, &data.arg_str); err != nil {
 		return
 	}
-	base_str := fmt.Sprintf("[%s] type:%d pid:%d tid:%d nr:%s", bytes.TrimSpace(bytes.Trim(data.comm[:], "\x00")), data.mtype, data.pid, data.tid, this.ReadNR(*data))
+	var base_str string
+	if this.conf.Debug {
+		base_str = fmt.Sprintf("[%s] type:%d pid:%d tid:%d nr:%s", bytes.TrimSpace(bytes.Trim(data.comm[:], "\x00")), data.mtype, data.pid, data.tid, this.ReadNR(*data))
+	} else {
+		base_str = fmt.Sprintf("[%s] pid:%d tid:%d nr:%s", bytes.TrimSpace(bytes.Trim(data.comm[:], "\x00")), data.pid, data.tid, this.ReadNR(*data))
+	}
+	// type 和数据发送的顺序相关
 	switch data.mtype {
 	case 1:
+		// --getlr 和 --getpc 建议只使用其中一个
 		if this.conf.GetLR {
 			info, err := this.ParseLR(*data)
 			if err != nil {
 				this.logger.Printf("ParseLR err:%v\n", err)
 			}
-			this.logger.Printf("%s %s LR:%s\n", base_str, this.ReadArgs(*data), info)
-		} else if this.conf.GetPC {
+			this.logger.Printf("%s LR:0x%x Info:\n%s\n", base_str, data.lr, info)
+		}
+		if this.conf.GetPC {
 			info, err := this.ParsePC(*data)
 			if err != nil {
 				this.logger.Printf("ParsePC err:%v\n", err)
 			}
-			this.logger.Printf("%s %s PC:%s\n", base_str, this.ReadArgs(*data), info)
-		} else {
-			this.logger.Printf("%s %s\n", base_str, this.ReadArgs(*data))
+			this.logger.Printf("%s PC:0x%x Info:\n%s\n", base_str, data.pc, info)
 		}
 	case 2:
 		arg_str := strings.SplitN(string(bytes.Trim(data.arg_str[:], "\x00")), "\x00", 2)[0]
 		this.logger.Printf("%s arg_index:%d arg_str:%s\n", base_str, data.arg_index, strings.TrimSpace(arg_str))
 	case 3:
+		this.logger.Printf("%s %s\n", base_str, this.ReadArgs(*data))
+	case 4:
+		arg_str := strings.SplitN(string(bytes.Trim(data.arg_str[:], "\x00")), "\x00", 2)[0]
+		this.logger.Printf("%s arg_index:%d arg_ret_str:%s\n", base_str, data.arg_index, strings.TrimSpace(arg_str))
+	case 5:
 		this.logger.Printf("%s ret:0x%x\n", base_str, data.ret)
 	}
 
