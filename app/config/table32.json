@@ -161,7 +161,7 @@
     "159": [1, "sched_get_priority_max", 0, 0],
     "160": [1, "sched_get_priority_min", 0, 0],
     "161": [2, "sched_rr_get_interval", 0, 0],
-    "162": [2, "nanosleep", 0, 0],
+    "162": [2, "nanosleep", 3, 0],
     "163": [5, "mremap", 0, 0],
     "164": [3, "setresuid", 0, 0],
     "165": [3, "getresuid", 0, 0],

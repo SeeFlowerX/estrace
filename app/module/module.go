@@ -284,11 +284,12 @@ func (this *Module) Decode(em *ebpf.Map, payload []byte) (event event.SyscallDat
 	if err = binary.Read(buf, binary.LittleEndian, &data.arg_str); err != nil {
 		return
 	}
+	nr := this.ReadNR(*data)
 	var base_str string
 	if this.conf.Debug {
-		base_str = fmt.Sprintf("[%s] type:%d pid:%d tid:%d nr:%s", bytes.TrimSpace(bytes.Trim(data.comm[:], "\x00")), data.mtype, data.pid, data.tid, this.ReadNR(*data))
+		base_str = fmt.Sprintf("[%s] type:%d pid:%d tid:%d nr:%s", bytes.TrimSpace(bytes.Trim(data.comm[:], "\x00")), data.mtype, data.pid, data.tid, nr)
 	} else {
-		base_str = fmt.Sprintf("[%s] pid:%d tid:%d nr:%s", bytes.TrimSpace(bytes.Trim(data.comm[:], "\x00")), data.pid, data.tid, this.ReadNR(*data))
+		base_str = fmt.Sprintf("[%s] pid:%d tid:%d nr:%s", bytes.TrimSpace(bytes.Trim(data.comm[:], "\x00")), data.pid, data.tid, nr)
 	}
 	// type 和数据发送的顺序相关
 	switch data.mtype {
@@ -309,7 +310,17 @@ func (this *Module) Decode(em *ebpf.Map, payload []byte) (event event.SyscallDat
 			this.logger.Printf("%s PC:0x%x Info:\n%s\n", base_str, data.pc, info)
 		}
 	case 2:
-		arg_str := strings.SplitN(string(bytes.Trim(data.arg_str[:], "\x00")), "\x00", 2)[0]
+		var arg_str string
+		if nr == "nanosleep" {
+			var spec Timespec
+			t_buf := bytes.NewBuffer(data.arg_str[:])
+			if err = binary.Read(t_buf, binary.LittleEndian, &spec); err != nil {
+				return event, err
+			}
+			arg_str = spec.String()
+		} else {
+			arg_str = strings.SplitN(string(bytes.Trim(data.arg_str[:], "\x00")), "\x00", 2)[0]
+		}
 		this.logger.Printf("%s arg_index:%d arg_str:%s\n", base_str, data.arg_index, strings.TrimSpace(arg_str))
 	case 3:
 		this.logger.Printf("%s %s\n", base_str, this.ReadArgs(*data))
