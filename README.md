@@ -30,13 +30,17 @@ adb push estrace /data/local/tmp
 adb shell chmod +x /data/local/tmp/estrace
 ```
 
-进入`adb shell`，`在root用户下`执行命令，示例如下：
+进入`adb shell`，`在root用户下`执行命令，案例如下：
+
+1. 追踪定位execve调用
 
 ```bash
 /data/local/tmp/estrace --name com.starbucks.cn --syscall execve --getlr -o trace.log
 ```
 
 ![](./images/Snipaste_2022-11-22_17-10-18.png)
+
+2. 尝试过root检查
 
 项目提供了一个`--bypass`选项，你可以使用该选项测试过掉root检查，当然这里只是进行简单演示
 
@@ -53,6 +57,16 @@ adb shell chmod +x /data/local/tmp/estrace
 ![](./images/oCam_2022_12_04_23_03_56_661.gif)
 
 我这里magisk被安装到了`/dev/.magisk`，所以可能并不适用于其他情况，仅供参考，有兴趣请自行修改源码测试
+
+3. 定位文件重定向检查
+
+```bash
+./estrace --name com.ysh.hookapkverify --syscall openat,readlinkat --getpc -o tmp.log
+```
+
+这是一个典型的内联svc检查文件是否被重定向的操作，借助`estrace`可实现快速定位
+
+![](./images/Snipaste_2022-12-05_10-25-14.png)
 
 更多命令，请执行`./estrace --help`查看
 
