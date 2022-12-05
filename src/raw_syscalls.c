@@ -288,9 +288,11 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
         for (int j = 0; j < 2; j++) {
             data->arg_index = j;
             bpf_probe_read_kernel(&data->args[j], sizeof(u64), &regs->regs[j]);
-            __builtin_memset(&data->arg_str, 0, sizeof(data->arg_str));
-            bpf_probe_read_user(data->arg_str, sizeof(struct timespec), (void*)data->args[j]);
-            bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
+            if (data->args[j] != 0) {
+                __builtin_memset(&data->arg_str, 0, sizeof(data->arg_str));
+                bpf_probe_read_user(data->arg_str, sizeof(struct timespec), (void*)data->args[j]);
+                bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
+            }
         }
     } else {
         // 展开循环
