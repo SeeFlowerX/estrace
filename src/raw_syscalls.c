@@ -298,6 +298,11 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
             }
         }
     } else {
+        // 可能是展开循环或者处于else分支的原因 这里必须得重新获取一次 arg_mask
+        struct arg_mask_t* arg_mask = bpf_map_lookup_elem(&arg_mask_map, &data->syscall_id);
+        if (arg_mask == NULL) {
+            return 0;
+        }
         // 展开循环
         #pragma unroll
         for (int i = 0; i < 6; i++) {
