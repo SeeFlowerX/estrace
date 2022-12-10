@@ -4,6 +4,7 @@ const MAX_COUNT = 10
 
 type GlobalConfig struct {
     Quiet       bool
+    AfterRead   bool
     Name        string
     GetLR       bool
     GetPC       bool
@@ -36,6 +37,7 @@ func (this *GlobalConfig) GetFilter(systable_config SysTableConfig) (Filter, err
     filter.SetPid(uint32(this.Pid))
     filter.SetArch(this.Is32Bit)
     filter.SetByPass(this.Bypass)
+    filter.SetAfterRead(this.AfterRead)
     var err error = nil
     if this.SysCall != "" {
         err = filter.SetSysCall(this.SysCall, systable_config)

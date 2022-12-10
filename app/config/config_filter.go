@@ -11,6 +11,7 @@ type Filter struct {
     pid                    uint32
     is_32bit               uint32
     try_bypass             uint32
+    after_read             uint32
     tid_blacklist_mask     uint32
     tid_blacklist          [MAX_COUNT]uint32
     syscall_mask           uint32
@@ -85,5 +86,13 @@ func (this *Filter) SetByPass(try_bypass bool) {
         this.try_bypass = 1
     } else {
         this.try_bypass = 0
+    }
+}
+
+func (this *Filter) SetAfterRead(after_read bool) {
+    if after_read {
+        this.after_read = 1
+    } else {
+        this.after_read = 0
     }
 }

@@ -56,6 +56,7 @@ struct filter_t {
     u32 pid;
     u32 is_32bit;
     u32 try_bypass;
+    u32 after_read;
     u32 tid_blacklist_mask;
     u32 tid_blacklist[MAX_COUNT];
     u32 syscall_mask;
@@ -410,17 +411,36 @@ int raw_syscalls_sys_exit(struct bpf_raw_tracepoint_args* ctx) {
         }
     }
 
-    struct arg_mask_t* arg_ret_mask = bpf_map_lookup_elem(&arg_ret_mask_map, &data->syscall_id);
-    if (arg_ret_mask == NULL) {
-        return 0;
-    }
-
     // 获取线程名
     __builtin_memset(&data->comm, 0, sizeof(data->comm));
     bpf_get_current_comm(&data->comm, sizeof(data->comm));
     // 基本信息
     data->pid = pid;
     data->tid = tid;
+
+    // 获取字符串参数类型配置
+    struct arg_mask_t* arg_mask = bpf_map_lookup_elem(&arg_mask_map, &data->syscall_id);
+    if (arg_mask == NULL) {
+        return 0;
+    }
+    if (filter->after_read) {
+        data->type = 6;
+        #pragma unroll
+        for (int i = 0; i < 6; i++) {
+            bpf_probe_read_kernel(&data->args[i], sizeof(u64), &regs->regs[i]);
+            if (arg_mask->mask & (1 << i)) {
+                data->arg_index = i;
+                __builtin_memset(&data->arg_str, 0, sizeof(data->arg_str));
+                bpf_probe_read_user(data->arg_str, sizeof(data->arg_str), (void*)data->args[i]);
+                send_data_arg_str(ctx, data, data->args[i]);
+            }
+        }
+    }
+
+    struct arg_mask_t* arg_ret_mask = bpf_map_lookup_elem(&arg_ret_mask_map, &data->syscall_id);
+    if (arg_ret_mask == NULL) {
+        return 0;
+    }
 
     // 获取syscall执行后才会有内容的字符串参数 比如重定向检测
     data->type = 4;

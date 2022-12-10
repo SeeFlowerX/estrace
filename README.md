@@ -144,3 +144,4 @@ adb shell chmod +x /data/local/tmp/estrace
 - [ehids/ebpfmanager](https://github.com/ehids/ebpfmanager)
 - [cilium/ebpf](https://github.com/cilium/ebpf)
 - [maiyao1988/ebpf-plugin](https://github.com/maiyao1988/ebpf-plugin)
+- 感谢r0ysue反馈补充的bypass路径
