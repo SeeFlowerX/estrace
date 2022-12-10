@@ -78,16 +78,18 @@ static int inline send_data_arg_str(struct bpf_raw_tracepoint_args* ctx, struct 
         return 0;
     }
     if (filter->try_bypass) {
-        char target[3][12] = {
+        char target[5][18] = {
             "/dev/.magisk",
+            "/system/bin/magisk",
+            "/system/bin/su",
             "which su",
             "mount",
         };
         #pragma unroll
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 5; i++) {
             bool need_override = true;
             #pragma unroll
-            for (int j = 0; j < 12; j++) {
+            for (int j = 0; j < 18; j++) {
                 if (target[i][j] == 0) break;
                 if (data->arg_str[j] != target[i][j]) {
                     need_override = false;
