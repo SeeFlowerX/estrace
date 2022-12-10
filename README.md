@@ -56,8 +56,6 @@ adb shell chmod +x /data/local/tmp/estrace
 
 ![](./images/oCam_2022_12_04_23_03_56_661.gif)
 
-我这里magisk被安装到了`/dev/.magisk`，所以可能并不适用于其他情况，仅供参考，有兴趣请自行修改源码测试
-
 3. 定位文件重定向检查
 
 ```bash
