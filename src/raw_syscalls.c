@@ -105,6 +105,7 @@ static int inline send_data_arg_str(struct bpf_raw_tracepoint_args* ctx, struct 
             }
         }
     }
+    data->type = 2;
     bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
     return 0;
 }
@@ -202,6 +203,33 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
     bpf_get_current_comm(&data->comm, sizeof(data->comm));
 
     // 线程名过滤？后面考虑有没有必要
+    // 渲染相关的线程 属实没必要 太多调用了
+    char thread_blacklist[9][15] = {
+        "RenderThread",
+        "RxCachedThreadS",
+        "mali-cmar-backe",
+        "mali-utility-wo",
+        "mali-mem-purge",
+        "mali-hist-dump",
+        "hwuiTask0",
+        "hwuiTask1",
+        "NDK MediaCodec_",
+    };
+    #pragma unroll
+    for (int i = 0; i < 9; i++) {
+        bool need_skip = true;
+        #pragma unroll
+        for (int j = 0; j < 15; j++) {
+            if (thread_blacklist[i][j] == 0) break;
+            if (data->comm[j] != thread_blacklist[i][j]) {
+                need_skip = false;
+                break;
+            }
+        }
+        if (need_skip) {
+            return 0;
+        }
+    }
 
     // 基本信息
     data->pid = pid;
@@ -222,7 +250,6 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
     bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
 
     // 获取参数
-    data->type = 2;
     if ((filter->is_32bit && data->syscall_id == 11) || (!filter->is_32bit && data->syscall_id == 221)) {
         // execve 3个参数
         // const char *filename char *const argv[] char *const envp[]
@@ -294,6 +321,7 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
             if (data->args[j] != 0) {
                 __builtin_memset(&data->arg_str, 0, sizeof(data->arg_str));
                 bpf_probe_read_user(data->arg_str, sizeof(struct timespec), (void*)data->args[j]);
+                data->type = 2;
                 bpf_perf_event_output(ctx, &syscall_events, BPF_F_CURRENT_CPU, data, sizeof(struct syscall_data_t));
             }
         }
@@ -419,6 +447,34 @@ int raw_syscalls_sys_exit(struct bpf_raw_tracepoint_args* ctx) {
     // 获取线程名
     __builtin_memset(&data->comm, 0, sizeof(data->comm));
     bpf_get_current_comm(&data->comm, sizeof(data->comm));
+
+    char thread_blacklist[9][15] = {
+        "RenderThread",
+        "RxCachedThreadS",
+        "mali-cmar-backe",
+        "mali-utility-wo",
+        "mali-mem-purge",
+        "mali-hist-dump",
+        "hwuiTask0",
+        "hwuiTask1",
+        "NDK MediaCodec_",
+    };
+    #pragma unroll
+    for (int i = 0; i < 9; i++) {
+        bool need_skip = true;
+        #pragma unroll
+        for (int j = 0; j < 15; j++) {
+            if (thread_blacklist[i][j] == 0) break;
+            if (data->comm[j] != thread_blacklist[i][j]) {
+                need_skip = false;
+                break;
+            }
+        }
+        if (need_skip) {
+            return 0;
+        }
+    }
+
     // 基本信息
     data->pid = pid;
     data->tid = tid;
