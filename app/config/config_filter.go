@@ -6,6 +6,14 @@ import (
     "strings"
 )
 
+type SoInfoFilter struct {
+    uid                uint32
+    pid                uint32
+    is_32bit           uint32
+    pid_blacklist_mask uint32
+    pid_blacklist      [MAX_COUNT]uint32
+}
+
 type Filter struct {
     uid                    uint32
     pid                    uint32
