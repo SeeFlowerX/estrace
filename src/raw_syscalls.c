@@ -50,8 +50,8 @@ struct {
     __uint(max_entries, 512);
 } arg_ret_mask_map SEC(".maps");
 
-// 用于设置过滤配置
-struct filter_t {
+// syscall过滤配置
+struct syscall_filter_t {
     u32 uid;
     u32 pid;
     u32 is_32bit;
@@ -68,13 +68,13 @@ struct filter_t {
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __type(key, u32);
-    __type(value, struct filter_t);
+    __type(value, struct syscall_filter_t);
     __uint(max_entries, 1);
-} filter_map SEC(".maps");
+} syscall_filter_map SEC(".maps");
 
 static int inline send_data_arg_str(struct bpf_raw_tracepoint_args* ctx, struct syscall_data_t* data, u64 addr) {
     u32 filter_key = 0;
-    struct filter_t* filter = bpf_map_lookup_elem(&filter_map, &filter_key);
+    struct syscall_filter_t* filter = bpf_map_lookup_elem(&syscall_filter_map, &filter_key);
     if (filter == NULL) {
         return 0;
     }
@@ -114,7 +114,7 @@ SEC("raw_tracepoint/sys_enter")
 int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
 
     u32 filter_key = 0;
-    struct filter_t* filter = bpf_map_lookup_elem(&filter_map, &filter_key);
+    struct syscall_filter_t* filter = bpf_map_lookup_elem(&syscall_filter_map, &filter_key);
     if (filter == NULL) {
         return 0;
     }
@@ -359,7 +359,7 @@ int raw_syscalls_sys_enter(struct bpf_raw_tracepoint_args* ctx) {
 SEC("raw_tracepoint/sys_exit")
 int raw_syscalls_sys_exit(struct bpf_raw_tracepoint_args* ctx) {
     u32 filter_key = 0;
-    struct filter_t* filter = bpf_map_lookup_elem(&filter_map, &filter_key);
+    struct syscall_filter_t* filter = bpf_map_lookup_elem(&syscall_filter_map, &filter_key);
     if (filter == NULL) {
         return 0;
     }

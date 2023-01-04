@@ -116,8 +116,8 @@ func (this *MapsModule) Run() error {
 	this.bpfManager = &manager.Manager{
 		Probes: []*manager.Probe{
 			{
-				Section:          "uprobe/stack",
-				EbpfFuncName:     "probe_stack",
+				Section:          "uprobe/soinfo",
+				EbpfFuncName:     "probe_soinfo",
 				AttachToFuncName: this.symbolConfig.Symbol,
 				BinaryPath:       this.symbolConfig.Library,
 				UprobeOffset:     this.symbolConfig.Offset,
@@ -157,9 +157,9 @@ func (this *MapsModule) Run() error {
 		return fmt.Errorf("couldn't start bootstrap manager %v .", err)
 	}
 
-	filterMap, found, err := this.bpfManager.GetMap("filter_map")
+	filterMap, found, err := this.bpfManager.GetMap("soinfo_filter_map")
 	if !found {
-		return errors.New("cannot find filter_map")
+		return errors.New("cannot find soinfo_filter_map")
 	}
 
 	filter_key := 0

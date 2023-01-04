@@ -156,9 +156,9 @@ func (this *Module) Run() error {
 		argRetMaskMap.Update(unsafe.Pointer(&nr_key), unsafe.Pointer(&table_config.RetMask), ebpf.UpdateAny)
 	}
 
-	filterMap, found, err := this.bpfManager.GetMap("filter_map")
+	filterMap, found, err := this.bpfManager.GetMap("syscall_filter_map")
 	if !found {
-		return errors.New("cannot find filter_map")
+		return errors.New("cannot find syscall_filter_map")
 	}
 	// 更新进程过滤配置
 	filter_key := 0
