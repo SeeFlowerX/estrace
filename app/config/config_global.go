@@ -1,6 +1,6 @@
 package config
 
-const MAX_COUNT = 10
+const MAX_COUNT = 20
 
 type GlobalConfig struct {
     Quiet       bool
